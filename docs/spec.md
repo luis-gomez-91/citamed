@@ -211,6 +211,11 @@ No hay máquina de estados para recetas ni documentos.
 - El paciente no tiene usuario. El médico puede crear la ficha. Al reservar en su enlace, el correo se reutiliza dentro de ese consultorio o se crea la ficha ahí.
 - El médico se registra solo. No hace falta invitación ni administrador inicial.
 - Cancelar o reprogramar solo hasta 24 horas antes.
+- Cada consultorio guarda una zona horaria IANA. Los bloques se interpretan en esa zona.
+- El enlace público de reserva es un slug único elegido por el médico.
+- Al reservar son obligatorios el nombre y el correo del paciente.
+- Dos bloques del mismo médico no pueden solaparse el mismo día.
+- El correo de confirmación se encola. La cita permanece si el envío se retrasa o falla.
 
 ## Decisiones pendientes
 
