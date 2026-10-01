@@ -2,7 +2,7 @@
 
 ## 1. Resumen
 
-Aplicación web con frontend SvelteKit y API NestJS modular. PostgreSQL es la fuente de verdad. Prisma es el acceso a datos propuesto porque el SRS lo recomienda por su integración con TypeScript; TypeORM queda como alternativa no elegida todavía.
+Aplicación web con frontend SvelteKit y API NestJS modular. PostgreSQL es la fuente de verdad. El acceso a datos es Prisma.
 
 El navegador habla con SvelteKit. Las operaciones de negocio pasan por la API. La generación de PDF y el envío de correo salen de la petición HTTP y entran en una cola BullMQ sobre Redis. Los archivos clínicos viven en un bucket privado. El QR y los enlaces apuntan a una ruta de verificación que no publica el archivo de forma permanente.
 
@@ -39,14 +39,15 @@ Bucket privado (S3, R2 o Supabase Storage) y proveedor de correo
 
 - Backend NestJS con TypeScript.
 - PostgreSQL.
-- ORM: Prisma recomendado; TypeORM citado como alternativa.
+- ORM: Prisma.
 - Frontend SvelteKit, Tailwind CSS y shadcn-svelte (bits-ui).
 - JWT con `@nestjs/jwt` y rotación de refresh tokens.
+- Identidad adicional: OTP y Google OAuth.
 - Colas: BullMQ y Redis.
-- PDF: `@react-pdf/renderer` en Node, Puppeteer o pdfmake. Sin elección cerrada.
+- PDF: pdfmake.
 - QR: librería `qrcode`.
-- Correo: Resend o SendGrid. Plantillas con React Email o Handlebars. Sin elección cerrada.
-- Archivos: AWS S3, Cloudflare R2 o Supabase Storage. Sin elección cerrada.
+- Correo: Resend. Plantillas con React Email.
+- Archivos: Cloudflare R2.
 - HTTPS en tránsito. Cifrado en reposo en PostgreSQL y en el almacenamiento.
 
 ## 4. Componentes del sistema
@@ -106,7 +107,7 @@ Titular o enlace válido → API → URL pre-firmada de corta vida → bucket
 
 ## 6. Estructura del proyecto
 
-Monorepo propuesto para compartir contratos. No es un requisito del SRS.
+Monorepo con dos aplicaciones.
 
 ```text
 citamed/
@@ -126,11 +127,11 @@ Dentro de `apps/web/src`: rutas por rol y la ruta pública de verificación.
 
 ### Identidad
 
-**Responsabilidad:** registro, login, refresh con rotación, recuperación de contraseña y RBAC.
+**Responsabilidad:** login del personal por OTP de correo o Google, refresh con rotación y RBAC. El paciente no tiene credenciales.
 
 **Dependencias:** PostgreSQL, correo (recuperación), `@nestjs/jwt`.
 
-**Componentes principales:** servicio de autenticación, guard de roles, hash de contraseñas.
+**Componentes principales:** servicio de autenticación, guard de roles, emisión de OTP.
 
 ### Citas
 
@@ -218,7 +219,7 @@ Contratos orientativos. Los nombres pueden ajustarse al implementar.
 **Método:** GET disponibilidad; POST reserva; PATCH reprogramar o cancelar.  
 **Ruta:** `/appointments`, `/doctors/:id/availability`  
 **Propósito:** RF-CITA.  
-**Autorización:** paciente para reservar lo suyo; médico sobre su agenda; administrador sobre disponibilidad y usuarios.  
+**Autorización:** la reserva pública usa el enlace del médico. El médico solo opera su consultorio.  
 **Errores:** 409 slot ocupado, 403 rol.
 
 ### Recetas
@@ -270,7 +271,7 @@ Prisma como propuesta. Migraciones versionadas. La reserva del slot y la escritu
 
 - Contraseña con hash (argon2 o bcrypt; algoritmo no fijado en el SRS).
 - Access token JWT de vida corta y refresh opaco almacenado, rotado en cada uso.
-- Roles: `PATIENT`, `DOCTOR`, `ADMIN`. Recepcionista usa `ADMIN` hasta que se separen los permisos.
+- Rol con sesión: `DOCTOR`. Cada registro cuelga de ese médico. No hay rol de clínica.
 - Guards por rol y comprobación de propiedad (la cita o el documento pertenecen al usuario).
 - Rutas públicas: login, registro, reset y verificación con token.
 
@@ -348,7 +349,7 @@ Sin plataforma fijada. Hacen falta proceso API, proceso worker, PostgreSQL y Red
 ## 16. Seguridad
 
 - TLS.
-- Hash de contraseñas y de PIN de enlace si se usa PIN.
+- OTP de un solo uso y vida corta. No hay contraseña ni PIN de enlace.
 - Refresh y tokens de reset de un solo uso.
 - Presigned URLs de vida corta.
 - La página de verificación no lista otros documentos ni datos de más.
@@ -376,12 +377,12 @@ No exigido. Un id de petición basta en la primera versión.
 
 ## 18. Decisiones técnicas
 
-### DA-001 — Prisma como ORM propuesto
+### DA-001 — Prisma
 
-**Decisión:** usar Prisma salvo que se confirme TypeORM.  
-**Razón:** el SRS lo recomienda por TypeScript.  
+**Decisión:** Prisma.  
+**Razón:** elegido para este proyecto; encaja con el TypeScript del SRS.  
 **Alternativas:** TypeORM.  
-**Trade-off:** otro estilo de migraciones si más adelante se cambia.
+**Trade-off:** el modelo vive en `schema.prisma`, no en decoradores.
 
 ### DA-002 — PDF y correo fuera de la petición
 
@@ -397,12 +398,19 @@ No exigido. Un id de petición basta en la primera versión.
 **Alternativas:** URL del bucket guardada en `pdf_url`.  
 **Trade-off:** el campo del esquema simplificado cambia de significado.
 
-### DA-004 — Monorepo con `apps/api` y `apps/web`
+### DA-004 — Monorepo
 
-**Decisión:** propuesta de carpetas, no cerrada.  
+**Decisión:** `apps/api` y `apps/web` en este repositorio.  
 **Razón:** un solo producto con dos runtimes.  
 **Alternativas:** dos repositorios.  
-**Trade-off:** el tooling del monorepo es más pesado al inicio.
+**Trade-off:** el tooling del monorepo pesa más al inicio.
+
+### DA-005 — pdfmake, Resend y R2
+
+**Decisión:** PDF con pdfmake, correo con Resend y React Email, objetos en Cloudflare R2.  
+**Razón:** elección de proyecto. pdfmake evita un navegador headless en el worker.  
+**Alternativas:** `@react-pdf/renderer`, Puppeteer, SendGrid, S3, Supabase Storage.  
+**Trade-off:** las plantillas de correo usan React en un worker NestJS.
 
 ## 19. Riesgos y consideraciones
 
@@ -414,11 +422,6 @@ No exigido. Un id de petición basta en la primera versión.
 
 ## 20. Decisiones pendientes
 
-- Prisma o TypeORM (DA-001 es propuesta).
-- Motor de PDF.
-- Resend o SendGrid, y React Email o Handlebars.
-- S3, R2 o Supabase Storage.
-- Algoritmo de hash y TTL de tokens.
-- Monorepo o repositorios separados.
-- Política pública del QR y del PIN (viene de la spec).
+- TTL de access y refresh tokens.
 - Plataforma de despliegue.
+- Nada de clínica. El médico se registra solo.

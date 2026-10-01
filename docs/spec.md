@@ -2,12 +2,12 @@
 
 ## Objetivo y alcance
 
-Plataforma de gestión médica para pacientes, médicos y personal administrativo. Permite agendar citas presenciales o virtuales, emitir recetas digitales, adjuntar documentos clínicos y entregarlos por correo, enlace único o código QR.
+Herramienta para un médico freelance con consultorio propio. Cada médico es un espacio aislado: sus pacientes, su agenda, sus recetas y su enlace público de reserva. No hay clínica ni agencia que agrupe varios médicos. Permite agendar citas presenciales o virtuales, emitir recetas digitales, adjuntar documentos y entregarlos por correo, enlace único o código QR.
 
 ### Dentro de alcance
 
-- Registro e inicio de sesión con correo y contraseña, JWT y recuperación de contraseña por correo.
-- Control de acceso por rol: paciente, médico, administrador/recepcionista.
+- El médico crea su cuenta con OTP por correo o Google OAuth, y JWT. El paciente no tiene cuenta.
+- Un solo rol con sesión: el médico dueño de su consultorio.
 - Disponibilidad horaria del médico, reserva, reprogramación, cancelación y recordatorios de citas.
 - Emisión de recetas con ítems estructurados, firma del médico, PDF y QR de verificación.
 - Carga de certificados, órdenes de exámenes y resultados, con almacenamiento restringido.
@@ -18,7 +18,8 @@ Plataforma de gestión médica para pacientes, médicos y personal administrativ
 - Historia clínica completa más allá de recetas y documentos adjuntos.
 - Videollamada o sala virtual de la cita.
 - Facturación, pagos o seguros.
-- Multi-sede o multi-clínica como modelo explícito.
+- Clínica, agencia o directorio que administre varios médicos.
+- Recepcionista o administrador en la primera versión. Si más adelante un médico invita a un asistente, ese asistente solo ve el consultorio de quien lo invitó.
 - Firma electrónica cualificada con certificado de autoridad certificadora.
 - App nativa.
 
@@ -26,44 +27,41 @@ Plataforma de gestión médica para pacientes, médicos y personal administrativ
 
 | Actor | Puede |
 | --- | --- |
-| Paciente | Registrarse, iniciar sesión, solicitar y gestionar sus citas, ver su historial, descargar sus recetas y documentos por enlace o QR. |
-| Médico | Gestionar su agenda, atender consultas, emitir recetas y adjuntar documentos al historial del paciente. |
-| Administrador / recepcionista | Gestionar disponibilidad del personal médico, usuarios y configuración de la clínica. |
-| Tercero con el enlace o el QR | Acceder a la vista de verificación del documento, con el alcance de datos públicos aún por definir. |
-
-El requerimiento agrupa administrador y recepcionista en un solo rol. No se distinguen permisos distintos entre ambos.
+| Paciente | Sin cuenta. Reserva una cita, y la reprograma o cancela con el enlace del correo hasta 24 horas antes. Recibe recetas y documentos por enlace o QR. |
+| Médico | Crea su cuenta con OTP o Google. Define su enlace público, su agenda y sus especialidades. Crea pacientes, atiende, emite recetas y adjunta documentos. Solo ve su consultorio. |
+| Tercero con el enlace o el QR | Ve si el documento es válido, el médico y la fecha. No ve datos clínicos. |
 
 ## Funcionalidades
 
 ### RF-AUTH — Autenticación y seguridad
 
-- RF-AUTH-1: Registro e inicio de sesión con correo y contraseña.
-- RF-AUTH-2: Sesión con JWT y rotación de refresh tokens.
-- RF-AUTH-3: Acceso según rol (paciente, médico, administrador/recepcionista).
-- RF-AUTH-4: Recuperación de contraseña por correo.
+- RF-AUTH-1: El paciente no tiene cuenta. Lo crea un médico, o queda creado al reservar si ese correo no existía.
+- RF-AUTH-2: Sesión del personal con JWT y rotación de refresh tokens.
+- RF-AUTH-3: La sesión es del médico y solo autoriza datos de su consultorio.
+- RF-AUTH-4: El médico se registra solo, con OTP por correo o con Google. No hay invitación ni contraseña.
 
 ### RF-CITA — Agendamiento
 
 - RF-CITA-1: Bloques de trabajo por médico, con día, hora de inicio, hora de fin y duración de consulta.
 - RF-CITA-2: Vacaciones u otras ausencias que bloquean disponibilidad.
-- RF-CITA-3: Reserva eligiendo especialidad, médico, fecha y hora disponible.
-- RF-CITA-4: Correo de confirmación al reservar.
-- RF-CITA-5: Reprogramación y cancelación.
-- RF-CITA-6: Recordatorios automáticos.
-- RF-CITA-7: Estados de cita: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
+- RF-CITA-3: El paciente abre el enlace del médico, elige modalidad (presencial o virtual), fecha y hora disponible. No elige entre varios médicos.
+- RF-CITA-4: Correo de confirmación al reservar. La cita nace `CONFIRMED`.
+- RF-CITA-5: Reprogramación y cancelación hasta 24 horas antes por el paciente, con el enlace del correo. El médico puede hacerlo sobre sus citas también después de ese plazo.
+- RF-CITA-6: Recordatorios automáticos 24 horas antes y 2 horas antes.
+- RF-CITA-7: Estados de cita: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`. El alta usa `CONFIRMED`.
 
 ### RF-RX — Recetas y documentos
 
-- RF-RX-1: Receta ligada a una cita, con diagnóstico e ítems (fármaco, dosis, frecuencia, duración, indicaciones).
-- RF-RX-2: Firma digital o firma en imagen del médico.
+- RF-RX-1: Una cita puede tener varias recetas. Cada una lleva diagnóstico e ítems (fármaco, dosis, frecuencia, duración, indicaciones).
+- RF-RX-2: Firma en imagen subida por el médico.
 - RF-RX-3: PDF de la receta generado de forma dinámica, con QR incrustado.
-- RF-RX-4: Carga de certificados, órdenes o resultados en PDF o imagen, asociados a paciente y médico.
+- RF-RX-4: Carga de certificados, órdenes o resultados en PDF o imagen, ligados a una cita, a un paciente y a un médico.
 - RF-RX-5: Archivos en almacenamiento de objetos, accesibles por URL temporal o restringida.
 
 ### RF-DIST — Distribución
 
 - RF-DIST-1: Envío por correo del PDF o de un enlace único.
-- RF-DIST-2: URL con identificador y token, por ejemplo `/v/doc_123?token=xyz`, con expiración opcional o protección por contraseña o PIN.
+- RF-DIST-2: URL con identificador y token, por ejemplo `/v/doc_123?token=xyz`. Caduca a los 30 días. No pide PIN.
 - RF-DIST-3: QR que apunta a la URL de validación del documento.
 
 ## Reglas de negocio confirmadas
@@ -76,10 +74,14 @@ El requerimiento agrupa administrador y recepcionista en un solo rol. No se dist
 - RN-6: El PDF de la receta incluye un QR hacia la URL de validación.
 - RN-7: Los archivos clínicos no quedan en URLs públicas permanentes; el acceso es temporal o restringido.
 - RN-8: Cada rol solo opera sobre las capacidades descritas para ese actor.
+- RN-9: La especialidad es un catálogo. Un médico puede tener varias.
+- RN-10: Pacientes, citas, recetas y documentos pertenecen a un solo médico. El mismo correo en dos consultorios son dos fichas distintas.
+- RN-11: Quien abre el enlace o el QR, sin sesión de paciente, ve únicamente si el documento es válido, el médico y la fecha. No ve datos clínicos.
+- RN-12: El enlace de receta o documento deja de servir a los 30 días.
 
 ## Reglas que faltan o necesitan confirmación
 
-Ver sección Decisiones pendientes. En particular: quién confirma una cita `PENDING`, qué ve quien escanea el QR, política de PIN y expiración, modalidad presencial/virtual, y si un médico solo ve a sus pacientes.
+Dentro de un consultorio, si el correo ya tiene ficha se reutiliza; si no, la reserva la crea. No se cruza con las fichas de otro médico.
 
 ## Entidades y relaciones
 
@@ -92,15 +94,15 @@ Confirmadas por el esquema simplificado:
 - `Prescription` 1—N `PrescriptionItem`.
 - `MedicalDocument` pertenece a un paciente y a un médico.
 
-Mencionadas en el texto y ausentes del esquema: especialidad, vacaciones, modalidad de cita, firma del médico, expiración y PIN del enlace, tokens de recuperación y refresh tokens. No se incorporan como requisito de datos hasta confirmarlas.
+Además del esquema simplificado hacen falta: catálogo de especialidades (médico N—N especialidad), ausencias, modalidad en la cita, imagen de firma del médico, caducidad del enlace (30 días), varias recetas por cita, documento ligado a la cita, refresh tokens, tokens de recuperación y la identidad de Google y de OTP.
 
 ## Flujos
 
 ### Reserva de cita
 
-1. El paciente elige especialidad, médico, fecha y un horario libre.
-2. El sistema crea la cita y envía el correo de confirmación.
-3. El estado inicial no está definido: el esquema incluye `PENDING` y `CONFIRMED`.
+1. El paciente abre el enlace público de ese médico y elige modalidad, fecha y un horario libre.
+2. El sistema crea la cita en `CONFIRMED` y envía el correo de confirmación.
+3. Envía recordatorio 24 horas antes y otro 2 horas antes.
 
 ### Atención y receta
 
@@ -119,31 +121,27 @@ Mencionadas en el texto y ausentes del esquema: especialidad, vacaciones, modali
 
 1. Un tercero escanea el QR.
 2. Llega a la URL de validación.
-3. La información visible está pendiente de definición.
+3. Ve si el documento es válido, el nombre del médico y la fecha. No ve diagnóstico, fármacos ni el archivo.
 
 ## Estados y transiciones
 
 Cita: `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
 
-Transiciones no definidas en el requerimiento. Propuesta solo como hipótesis de trabajo, no como regla:
-
-- Crear → `PENDING` o `CONFIRMED`.
-- Confirmar → `CONFIRMED`.
-- Cancelar desde `PENDING` o `CONFIRMED` → `CANCELLED`.
+- Crear → `CONFIRMED`.
+- Cancelar desde `CONFIRMED` → `CANCELLED`. El paciente solo hasta 24 horas antes; el médico de esa cita, en cualquier momento previo a completarla.
 - Completar una cita confirmada → `COMPLETED`.
+- `PENDING` permanece en el modelo y no se usa al reservar.
 
 No hay máquina de estados para recetas ni documentos.
 
 ## Validaciones
 
-- Correo único y contraseña en el registro (política de complejidad no especificada).
+- El correo del personal es único. El código OTP caduca y es de un solo uso.
 - Rol obligatorio y perteneciente al conjunto definido.
 - Slot dentro del bloque del médico, sin solaparse con otra cita ni con una ausencia.
 - Ítem de receta con fármaco, dosis, frecuencia y duración.
 - Adjunto limitado a PDF o imagen.
-- Token de acceso inválido, expirado o sin PIN correcto no entrega el archivo.
-
-Los umbrales (longitud de contraseña, tamaño máximo de archivo, TTL del enlace) no están en el requerimiento.
+- Token de acceso inválido o expirado (más de 30 días) no entrega el archivo.
 
 ## Manejo de errores
 
@@ -155,19 +153,19 @@ Los umbrales (longitud de contraseña, tamaño máximo de archivo, TTL del enlac
 
 ## Criterios de aceptación
 
-- AC-AUTH-1: Un usuario se registra con correo y contraseña e inicia sesión.
+- AC-AUTH-1: Un médico crea su cuenta y entra con un OTP de correo o con Google, sin contraseña.
 - AC-AUTH-2: Un access token vencido se renueva rotando el refresh token; el refresh anterior deja de servir.
-- AC-AUTH-3: Un paciente no gestiona disponibilidad ni usuarios; un médico no administra la configuración de la clínica.
-- AC-AUTH-4: Quien solicita recuperar la contraseña recibe un correo y puede definir una nueva.
+- AC-AUTH-3: Quien no tiene sesión de personal no gestiona disponibilidad, usuarios ni recetas. El paciente opera su cita solo con el enlace del correo.
+- AC-AUTH-4: Un OTP usado o vencido no abre sesión.
 - AC-CITA-1: Solo se ofrecen horas dentro de los bloques del médico, fuera de vacaciones y no ocupadas.
 - AC-CITA-2: Al reservar, el paciente recibe un correo de confirmación.
-- AC-CITA-3: Paciente o personal autorizado puede reprogramar y cancelar según las reglas que se confirmen.
+- AC-CITA-3: El paciente reprograma o cancela con su enlace hasta 24 horas antes. El médico puede hacerlo sobre sus citas. Un médico no ve citas de otro.
 - AC-CITA-4: Un recordatorio se envía antes de la cita por el mecanismo automático definido.
 - AC-RX-1: Una receta guardada produce un PDF con diagnóstico, ítems, firma y QR.
 - AC-RX-2: El QR abre la URL de validación de esa receta.
 - AC-RX-3: Un adjunto PDF o imagen queda almacenado y solo se descarga con acceso temporal o token válido.
 - AC-DIST-1: El correo de entrega incluye el PDF o un enlace único.
-- AC-DIST-2: Un enlace expirado o con PIN incorrecto no muestra el documento.
+- AC-DIST-2: Un enlace expirado no muestra el documento. Uno vigente, abierto sin ser el paciente, muestra solo validez, médico y fecha.
 
 ## Casos borde
 
@@ -180,39 +178,46 @@ Los umbrales (longitud de contraseña, tamaño máximo de archivo, TTL del enlac
 - Archivo que no es PDF ni imagen, o que supera un tamaño aún no definido.
 - QR o enlace usado después de expirar, o compartido con terceros.
 - Correo de confirmación o recordatorio que falla.
-- Recuperación de contraseña con token ya usado.
+- OTP reutilizado o vencido.
 
 ## Casos de prueba
 
 - Registro, login, refresh rotado y rechazo de refresh reutilizado.
-- Recuperación de contraseña: token válido, expirado y reutilizado.
+- OTP válido, expirado y reutilizado. Login con Google de una cuenta no autorizada.
 - RBAC por cada rol en citas, recetas, documentos y usuarios.
 - Cálculo de slots: bloque, duración, vacaciones y solapes.
 - Reserva concurrente del mismo slot: una sola cita persistida.
 - Transiciones de estado de cita permitidas y rechazadas.
 - Generación de PDF con QR que resuelve al documento correcto.
 - URL pre-firmada caducada y token de acceso inválido.
-- PIN correcto e incorrecto cuando la protección esté activa.
+- Verificación pública sin diagnóstico ni archivo.
 - Encolado de correo y PDF: la API responde sin esperar al envío.
+
+## Decisiones cerradas
+
+- Verificación pública: validez, médico y fecha. Sin datos clínicos ni PIN.
+- La cita nace confirmada.
+- Reprograman y cancelan el paciente (hasta 24 horas antes, con el enlace) y el médico (sus citas).
+- Recordatorio a las 24 horas y a las 2 horas.
+- Catálogo de especialidades, varias por médico.
+- La cita guarda si es presencial o virtual.
+- Firma: imagen subida por el médico.
+- Enlace con caducidad de 30 días, sin PIN.
+- No hay rol de clínica ni de recepción en la primera versión.
+- Cada médico solo ve su consultorio.
+- Varias recetas por cita. El documento adjunto también se liga a la cita.
+- Protección de datos personales local. No se certifica HIPAA en esta versión.
+- El personal entra con OTP por correo o con Google. No hay contraseña.
+- El paciente no tiene usuario. El médico puede crear la ficha. Al reservar en su enlace, el correo se reutiliza dentro de ese consultorio o se crea la ficha ahí.
+- El médico se registra solo. No hace falta invitación ni administrador inicial.
+- Cancelar o reprogramar solo hasta 24 horas antes.
 
 ## Decisiones pendientes
 
-1. **Vista pública del QR.** El SRS pide decidir qué datos ve un tercero. Afecta privacidad y el criterio AC-DIST de verificación. Alternativas: solo validez y nombre del médico; validez más paciente parcial; documento completo tras PIN.
-2. **Estado inicial de la cita y quién confirma.** Afecta RN de estados y los correos. Alternativas: nace `CONFIRMED`; nace `PENDING` y la confirma recepción o el médico.
-3. **Quién reprograma y cancela, y hasta cuándo.** Afecta AC-CITA-3.
-4. **Contenido y anticipación del recordatorio.** Afecta AC-CITA-4.
-5. **Especialidad.** La reserva la exige y el esquema no la modela. Alternativas: catálogo de especialidades y médicos N—N; texto libre en el perfil.
-6. **Modalidad presencial o virtual.** Está en la descripción y no en el esquema.
-7. **Firma.** “Digital o imagen” no elige mecanismo ni si es obligatoria.
-8. **Política del enlace:** expiración, PIN, un solo uso, y si aplica igual a recetas y a documentos.
-9. **Alcance del administrador frente al recepcionista.** Hoy son el mismo rol.
-10. **Un médico y el historial.** No dice si ve solo sus pacientes o cualquier paciente de la clínica.
-11. **Varias recetas por cita** y si el documento adjunto debe ligarse a una cita.
-12. **Jurisdicción de datos de salud** (HIPAA u otra). Afecta retención, cifrado y registro de accesos, no el flujo básico.
-13. **Política de contraseñas, verificación de correo en el registro y bloqueo por intentos.** No están especificados.
+La plataforma de despliegue y la duración de los tokens no cambian los flujos. Un asistente invitado por el médico queda fuera de la primera versión.
 
 ## Supuestos (no son requisitos)
 
-- Una sola clínica en la primera versión.
-- El paciente solo ve sus citas, recetas y documentos.
+- El médico comparte su propio enlace. No hay un buscador público de médicos en la primera versión.
+- El paciente solo ve la cita, la receta o el documento para los que tiene enlace.
 - El correo de confirmación no sustituye la regla de negocio de la reserva: la cita existe aunque el envío se retrase.

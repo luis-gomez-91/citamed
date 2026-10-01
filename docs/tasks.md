@@ -2,7 +2,7 @@
 
 Implementar la plataforma médica descrita en `docs/spec.md` con la arquitectura de `docs/architecture.md`.
 
-El trabajo empieza cuando se cierren las decisiones que bloquean el esquema y los proveedores. Hasta entonces no se fija Prisma frente a TypeORM ni el bucket, el correo o el motor de PDF.
+El producto es un consultorio por médico, sin clínica. Quedan la duración de los tokens y el despliegue.
 
 ---
 
@@ -33,10 +33,7 @@ Dejar por escrito las decisiones de `docs/spec.md` y `docs/architecture.md` que 
 
 **Alcance**
 
-- Elegir ORM, motor de PDF, proveedor de correo, motor de plantillas y bucket.
-- Definir estado inicial de la cita, quién confirma, reprograma y cancela, y la anticipación del recordatorio.
-- Definir qué muestra la verificación por QR y si hay PIN o expiración.
-- Definir especialidad, modalidad presencial/virtual y tipo de firma.
+- El médico se registra solo. No hay administrador inicial.
 
 **Fuera de alcance**
 
@@ -103,7 +100,7 @@ API en marcha con `GET /health` y frontend que renderiza una página base.
 
 **Estado**
 
-- Pendiente
+- Completada
 
 ---
 
@@ -198,11 +195,11 @@ Un job de prueba se consume y un fallo se reintenta.
 
 ## Fase 2 — Identidad
 
-### TASK-005 — Registro e inicio de sesión
+### TASK-005 — Acceso del personal
 
 **Objetivo**
 
-Registrar usuarios con rol y abrir sesión con access token y refresh rotativo.
+Abrir la cuenta del médico con OTP por correo o Google, y refresh rotativo. El paciente no tiene cuenta. Los datos quedan aislados por médico.
 
 **Referencia**
 
@@ -215,13 +212,14 @@ Registrar usuarios con rol y abrir sesión con access token y refresh rotativo.
 
 **Alcance**
 
-- Hash de contraseña.
-- Login y refresh con invalidación del refresh anterior.
+- OTP de un solo uso enviado con Resend.
+- Login con Google limitado a cuentas de personal.
+- Refresh con invalidación del token anterior.
 - Guard por rol.
 
 **Fuera de alcance**
 
-- Recuperación de contraseña.
+- Alta masiva de pacientes.
 - Pantallas finales de producto.
 
 **Archivos / componentes afectados**
@@ -230,11 +228,11 @@ Registrar usuarios con rol y abrir sesión con access token y refresh rotativo.
 
 **Resultado esperado**
 
-Registro, login y renovación de sesión según los criterios de autenticación.
+El personal entra con OTP o Google. Un paciente no obtiene sesión.
 
 **Validación**
 
-- Tests: login válido, login inválido, refresh reutilizado rechazado, ruta de admin prohibida al paciente.
+- Tests: OTP válido, OTP reutilizado, Google de alguien que no es personal, refresh reutilizado y ruta de personal prohibida sin sesión.
 
 **Estado**
 
@@ -242,43 +240,41 @@ Registro, login y renovación de sesión según los criterios de autenticación.
 
 ---
 
-### TASK-006 — Recuperación de contraseña
+### TASK-006 — Alta de pacientes por el médico
 
 **Objetivo**
 
-Enviar un correo de recuperación y permitir una nueva contraseña con token de un solo uso.
+Permitir que un médico cree la ficha del paciente, sin credenciales.
 
 **Referencia**
 
-- Requisito: RF-AUTH-4
-- Criterio de aceptación: AC-AUTH-4
+- Requisito: RF-AUTH-1
+- Criterio de aceptación: AC-AUTH-3
 
 **Dependencias**
 
-- TASK-004
 - TASK-005
 
 **Alcance**
 
-- Emisión y consumo del token.
-- Job de correo.
+- Alta con los datos de perfil necesarios para citar y enviar correo.
+- Listado de pacientes de ese médico.
 
 **Fuera de alcance**
 
-- Cambio de contraseña autenticado, salvo que se pida aparte.
+- Portal del paciente con contraseña.
 
 **Archivos / componentes afectados**
 
-- Identidad y cola `mail`
+- Identidad y perfiles en `apps/api`
 
 **Resultado esperado**
 
-El token válido cambia la contraseña; el expirado o reutilizado no.
+El paciente existe como ficha clínica y no puede iniciar sesión.
 
 **Validación**
 
-- Tests de token válido, expirado y reutilizado.
-- El job de correo se encola sin esperar al proveedor en la petición.
+- Test: el médico crea un paciente; ese correo no obtiene OTP de personal.
 
 **Estado**
 
@@ -307,7 +303,7 @@ Definir bloques semanales y ausencias por médico.
 **Alcance**
 
 - Alta y consulta de bloques y ausencias.
-- Autorización: médico sobre su agenda; administrador según TASK-001.
+- Autorización: solo el médico dueño de esa agenda.
 
 **Fuera de alcance**
 
